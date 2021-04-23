@@ -78,5 +78,41 @@ class Vue {
     observe(this.$data)
     // 3. 代理 $data
     proxy(this, '$data')
+    // 4. 编译
+    new Complile(options.el, this)
+  }
+}
+
+class Complile {
+  // el 宿主元素, vm Vue实例
+  constructor (el, vm) {
+    this.$el = document.querySelector(el)
+    this.$vm = vm
+
+    // 解析模板
+    if (this.$el) {
+      // 编译
+      this.compile(this.$el)
+    }
+  }
+
+  compile (el) {
+    el.childNodes.forEach(node => {
+      if (node.nodeType === 1) {
+        console.log('编译元素', node.nodeName)
+      } else if (this.isInter(node)) {
+        console.log('编译文本', node.textContent, RegExp.$1)
+      }
+
+      // 递归
+      if (node.childNodes) {
+        this.compile(node)
+      }
+    })
+  }
+
+  // 判断插值表达式
+  isInter (node) {
+    return node.nodeType === 3 && /\{\{(.*)\}\}/.test(node.textContent)
   }
 }
