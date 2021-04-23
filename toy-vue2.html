@@ -1,0 +1,78 @@
+<div id="app"></div>
+<script>
+
+// 每个key的响应式处理
+// 拦截指定对象中指定key
+function defineReactive (obj, key, val) {
+  // 递归处理object
+  observe(val)
+  Object.defineProperty(obj, key, {
+    get () {
+      console.log('get', key)
+      return val
+    },
+    set (newVal) {
+      if (val !== newVal) {
+        // 值为object时, 需要做递归响应式处理
+        observe(newVal)
+        val = newVal
+        console.log('set', key)
+        update()
+      }
+    }
+  })
+}
+
+// 整个对象的响应式处理
+// 遍历整个对象，对每个key进行拦截
+function observe (obj) {
+  if (typeof obj !== 'object' || obj === null) {
+    return obj
+  }
+  for (const key in obj) {
+    defineReactive(obj, key, obj[key])
+  }
+}
+
+// 对象新添加的属性需要通过set方法实现响应式
+function set (obj, key, val) {
+  defineReactive(obj, key, val)
+}
+
+// 更新视图
+function update () {
+  app.innerHTML = `
+<ul>
+<li>name: ${obj.name}</li>
+<li>sex.man: ${obj.sex.man}</li>
+<li>sex.woman: ${obj.sex.woman}</li>
+<li>age: ${obj.age}</li>
+</ul>
+`
+}
+
+const obj = {
+  name: '',
+  sex: {
+    man: 1,
+    woman: 1
+  }
+}
+
+update()
+
+observe(obj)
+
+setTimeout(() => {
+  obj.name = 'cinob'
+  obj.sex = {
+    man: 20,
+    woman: 30
+  }
+  obj.age = 1
+  setTimeout(() => {
+    obj.sex.man = 50
+  }, 1000)
+}, 1000)
+
+</script>
