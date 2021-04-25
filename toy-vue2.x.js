@@ -3,9 +3,15 @@
 function defineReactive(obj, key, val) {
   // 递归处理object
   observe(val)
+
+  // 创建Dep
+  const dep = new Dep()
+
   Object.defineProperty(obj, key, {
     get() {
       console.log('get', key)
+      // 依赖收集
+      Dep.target && dep.addDep(Dep.target)
       return val
     },
     set(newVal) {
@@ -14,6 +20,9 @@ function defineReactive(obj, key, val) {
         // 值为object时, 需要做递归响应式处理
         observe(newVal)
         val = newVal
+
+        // 通知更新
+        dep.notify()
       }
     }
   })
@@ -99,9 +108,11 @@ class Complile {
   compile (el) {
     el.childNodes.forEach(node => {
       if (node.nodeType === 1) {
-        console.log('编译元素', node.nodeName)
+        // console.log('编译元素', node.nodeName)
+        this.compileElement(node)
       } else if (this.isInter(node)) {
-        console.log('编译文本', node.textContent, RegExp.$1)
+        // console.log('编译文本', node.textContent, RegExp.$1)
+        this.compileText(node)
       }
 
       // 递归
@@ -114,5 +125,93 @@ class Complile {
   // 判断插值表达式
   isInter (node) {
     return node.nodeType === 3 && /\{\{(.*)\}\}/.test(node.textContent)
+  }
+
+  // 编译文本
+  compileText (node) {
+    this.update(node, RegExp.$1, 'text')
+  }
+
+  // 编译元素: 分析指令、@事件
+  compileElement (node) {
+    // 获取属性并遍历
+    const nodeAttrs = node.attributes
+    
+    Array.from(nodeAttrs).forEach(attr => {
+      // 指令: v-xxx='yyy'
+      const attrName = attr.name  // xxx
+      const exp = attr.value  // yyy
+      if (this.isDirective(attrName)) {
+        const dir = attrName.substring(2)
+        // 调用指令方法
+        this[dir] && this[dir](node, exp)
+      }
+    })
+  }
+
+  isDirective (attr) {
+    return attr.indexOf('v-') === 0
+  }
+
+  // v-text
+  text (node, exp) {
+    this.update(node, exp, 'text')
+  }
+  textUpdater (node, val) {
+    node.textContent = val
+  }
+
+  // v-html
+  html (node, exp) {
+    this.update(node, exp, 'html')
+  }
+  htmlUpdater (node, val) {
+    node.innerHTML = val
+  }
+
+  // 提取update, 初始化和更新函数创建
+  update (node, exp, dir) {
+    const fn = this[dir + 'Updater']
+    // 初始化
+    fn && fn(node, this.$vm[exp])
+
+    // 更新
+    new Watcher(this.$vm, exp, val => {
+      fn && fn(node, val)
+    })
+  }
+}
+
+// Watcher: 与视图依赖1:1
+const watchers = []
+class Watcher {
+  constructor (vm, key, updaterFn) {
+    this.vm = vm
+    this.key = key
+    this.updaterFn = updaterFn
+
+    // 依赖收集触发
+    Dep.target = this
+    this.vm[this.key]
+    Dep.target = null
+  }
+
+  update () {
+    this.updaterFn.call(this.vm, this.vm[this.key])
+  }
+}
+
+// Dep: 管理Watcher 与key1:1 与Watcher 1:N
+class Dep {
+  constructor () {
+    this.deps = []
+  }
+
+  addDep (watcher) {
+    this.deps.push(watcher)
+  }
+
+  notify () {
+    this.deps.forEach(watcher => watcher.update())
   }
 }
