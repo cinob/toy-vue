@@ -1,3 +1,27 @@
+// Array响应式实现
+
+// 如果使用上述对象的响应式实现
+// const arr = [1, 2]
+// observe(arr)
+// arr[0] // get方法触发 √
+// arr.push(2) // 无法变成响应式
+// 替换数组原型中7个方法
+const orginalProto = Array.prototype;
+const arrayProto = Object.create(orginalProto);
+['push', 'pop', 'shift', 'unshift', 'sort', 'reverse', 'splice'].forEach(method => {
+  arrayProto[method] = function () {
+    // 原始操作
+    orginalProto[method].apply(this, arguments)
+    // 额外操作
+    // 通知更新
+    console.log('数组执行' + method + '操作')
+  }
+})
+const arr = [1, 2]
+observe(arr)
+arr[0] // get方法触发 √
+arr.push(2) // 无法变成响应式
+
 // Object响应式实现
 
 // 每个key的响应式处理
@@ -27,8 +51,19 @@ function observe(obj) {
   if (typeof obj !== 'object' || obj === null) {
     return obj
   }
-  for (const key in obj) {
-    defineReactive(obj, key, obj[key])
+
+  // 判断传入类型
+  if (Array.isArray(obj)) {
+    // 覆盖原型, 替换7个变更操作
+    obj.__proto__ = arrayProto;
+    // 对数组内部元素执行响应化
+    for (let i = 0; i < obj.length; i++) {
+      observe(obj[i])
+    }
+  } else {
+    for (const key in obj) {
+      defineReactive(obj, key, obj[key])
+    }
   }
 }
 
@@ -54,12 +89,4 @@ observe(obj)
 set(obj, 'age', 18)
 obj.age // get方法触发 √
 
-
-// Array响应式实现
-
-// 如果使用上述对象的响应式实现
-const arr = [1, 2]
-observe(arr)
-arr[0] // get方法触发 √
-arr.push(2) // 无法变成响应式
 

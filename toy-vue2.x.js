@@ -1,3 +1,13 @@
+// 覆盖7个改变Array长度的方法
+const ArrayProto = Object.create(Array.prototype)
+;['push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse'].forEach(method => {
+  ArrayProto[method] = function () {
+    Array.prototype[method].apply(this, arguments)
+    // 触发响应式更新
+    console.log(`触发了${method}更新`)
+  }
+})
+
 // 每个key的响应式处理
 // 拦截指定对象中指定key
 function defineReactive(obj, key, val) {
@@ -65,6 +75,10 @@ class Observer {
     // 根据类型执行不同操作
     if (Array.isArray(val)) {
       // array
+      val.__proto__ = ArrayProto
+      for (let i = 0; i < val.length; i++) {
+        observe(val[i])
+      }
     } else if (typeof val === 'object') {
       // object
       this.walk()
@@ -83,10 +97,12 @@ class Vue {
     // 1. 保存
     this.$options = options
     this.$data = options.data
+    this.$methods = options.methods
     // 2. data响应式处理
     observe(this.$data)
     // 3. 代理 $data
     proxy(this, '$data')
+    proxy(this, '$methods')
     // 4. 编译
     new Complile(options.el, this)
   }
@@ -138,19 +154,41 @@ class Complile {
     const nodeAttrs = node.attributes
     
     Array.from(nodeAttrs).forEach(attr => {
-      // 指令: v-xxx='yyy'
       const attrName = attr.name  // xxx
       const exp = attr.value  // yyy
       if (this.isDirective(attrName)) {
+        // 指令: v-xxx='yyy'
         const dir = attrName.substring(2)
         // 调用指令方法
         this[dir] && this[dir](node, exp)
+      } else if (this.isEvent(attrName)) {
+        // 事件: @xxx='yyy'
+        const event = attrName.substring(1)
+        // 添加事件监听
+        node.addEventListener(event, () => {
+          this.$vm[exp] && this.$vm[exp]()
+        })
       }
     })
   }
 
   isDirective (attr) {
     return attr.indexOf('v-') === 0
+  }
+
+  isEvent (attr) {
+    return attr.indexOf('@') === 0
+  }
+
+  // v-model
+  model (node, exp) {
+    node.addEventListener('input', (e) => {
+      this.$vm[exp] = e.target.value
+    })
+    this.update(node, exp, 'model')
+  }
+  modelUpdater (node, val) {
+    node.value = val
   }
 
   // v-text

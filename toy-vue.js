@@ -21,11 +21,24 @@ class Vue {
     return node.nodeType === 3 && /\{\{(.*)\}\}/.test(node.textContent)
   }
 
+  isDirective (dir) {
+    return dir.startsWith('v-')
+  }
+
+  getDirName (dir) {
+    return dir.substring(2)
+  }
+
   compile(element) {
     element.childNodes && element.childNodes.forEach(node => {
       if (node.nodeType === 1) {
         // ELEMENT_NODE
         this.compile(node)
+        Array.from(node.attributes).forEach(attr => {
+          if (this.isDirective(attr.nodeName)) {
+            console.log(this.getDirName(attr.nodeName), attr.nodeValue)
+          }
+        })
       } else if (this.needCompileText(node)) {
         // TEXT_NODE
         this.textNode(node)
